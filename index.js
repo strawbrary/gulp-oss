@@ -1,63 +1,71 @@
 'use strict';
 
 var es = require('event-stream');
-var knox = require('knox');
 var gutil = require('gulp-util');
 var mime = require('mime');
+var ALY = require('aliyun-sdk');
 mime.default_type = 'text/plain';
 
 module.exports = function (aws, options) {
   options = options || {};
 
-  if (!options.delay) { options.delay = 0; }
+  if (!options.delay) {
+    options.delay = 0;
+  }
 
-  var client = knox.createClient(aws);
-  var waitTime = 0;
-  var regexGzip = /\.([a-z]{2,})\.gz$/i;
+  ALY.config.update({
+    accessKeyId: aws.key,
+    secretAccessKey: aws.secret
+  });
+
+  var oss = new ALY.OSS({
+    endpoint: aws.endpoint,
+    apiVersion: '2013-10-15'
+  });
+
   var regexGeneral = /\.([a-z]{2,})$/i;
 
   return es.mapSync(function (file) {
 
-      // Verify this is a file
-      if (!file.isBuffer()) { return file; }
+    // Verify this is a file
+    if (!file.isBuffer()) {
+      return file;
+    }
 
-      var uploadPath = file.path.replace(file.base, options.uploadPath || '');
-      uploadPath = uploadPath.replace(new RegExp('\\\\', 'g'), '/');
-      var headers = { 'x-amz-acl': 'public-read' };
-      if (options.headers) {
-          for (var key in options.headers) {
-              headers[key] = options.headers[key];
-          }
+    var uploadPath = file.path.replace(file.base, options.uploadPath || '');
+    uploadPath = uploadPath.replace(new RegExp('\\\\', 'g'), '/');
+
+    var headers = {};
+    if (options.headers) {
+      for (var key in options.headers) {
+        headers[key] = options.headers[key];
       }
+    }
 
-      if (regexGzip.test(file.path)) {
-          // Set proper encoding for gzipped files, remove .gz suffix
-          headers['Content-Encoding'] = 'gzip';
-          uploadPath = uploadPath.substring(0, uploadPath.length - 3);
-      } else if (options.gzippedOnly) {
-          // Ignore non-gzipped files
-          return file;
-      }
+    // Set content type based of file extension
+    if (!headers['ContentType'] && regexGeneral.test(uploadPath)) {
+      headers['ContentType'] = mime.lookup(uploadPath);
+    }
 
-      // Set content type based of file extension
-      if (!headers['Content-Type'] && regexGeneral.test(uploadPath)) {
-        headers['Content-Type'] = mime.lookup(uploadPath);
-        if (options.encoding) {
-          headers['Content-Type'] += '; charset=' + options.encoding;
-        }
-      }
+    //headers['Content-Length'] = file.stat.size;
 
-      headers['Content-Length'] = file.stat.size;
+    headers['Body'] = file.contents;
 
-      client.putBuffer(file.contents, uploadPath, headers, function(err, res) {
-        if (err || res.statusCode !== 200) {
+    headers['Key'] = uploadPath;
+
+    oss.putObject(headers,
+      function (err, data) {
+
+        if (err) {
           gutil.log(gutil.colors.red('[FAILED]', file.path + " -> " + uploadPath));
-        } else {
-          gutil.log(gutil.colors.green('[SUCCESS]', file.path + " -> " + uploadPath));
-          res.resume();
+          gutil.log(err);
+          return;
         }
+
+        gutil.log(gutil.colors.green('[SUCCESS]', file.path + " -> " + uploadPath));
+
       });
 
-      return file;
+    return file;
   });
 };
