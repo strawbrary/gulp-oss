@@ -13,16 +13,14 @@ module.exports = function (aws, options) {
     options.delay = 0;
   }
 
-  ALY.config.update({
-    accessKeyId: aws.key,
-    secretAccessKey: aws.secret
-  });
-
   var oss = new ALY.OSS({
+    accessKeyId: aws.key,
+    secretAccessKey: aws.secret,
     endpoint: aws.endpoint,
     apiVersion: '2013-10-15'
   });
 
+  var regexGzip = /\.([a-z]{2,})\.gz$/i;
   var regexGeneral = /\.([a-z]{2,})$/i;
 
   return es.mapSync(function (file) {
@@ -42,9 +40,21 @@ module.exports = function (aws, options) {
       }
     }
 
+    var isGzipped = false;
+    if (regexGzip.test(file.path)) {
+      headers['ContentEncoding'] = 'gzip';
+      isGzipped = true;
+    }
+
     // Set content type based of file extension
     if (!headers['ContentType'] && regexGeneral.test(uploadPath)) {
-      headers['ContentType'] = mime.lookup(uploadPath);
+      var contentType;
+      if (isGzipped) {
+        contentType = mime.lookup(uploadPath.substring(0, uploadPath.length - 3));
+      } else {
+        contentType = mime.lookup(uploadPath);
+      }
+      headers['ContentType'] = contentType;
     }
 
     //headers['Content-Length'] = file.stat.size;
