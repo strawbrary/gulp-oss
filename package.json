@@ -1,13 +1,13 @@
 {
-  "name": "gulp-oss",
-  "version": "0.1.0",
+  "name": "gulp-oss-2",
+  "version": "0.2.0",
   "description": "A plugin for Gulp that uploads files to oss",
   "keywords": [
     "gulpplugin",
     "gulp",
     "oss"
   ],
-  "homepage": "https://github.com/nkostelnik/gulp-s3.git",
+  "homepage": "https://github.com/strawbrary/gulp-oss",
   "author": {
     "name": "chylvina",
     "email": "chylvina@gmail.com"
@@ -15,10 +15,10 @@
   "main": "./index.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:nkostelnik/gulp-s3.git"
+    "url": "git@github.com:strawbrary/gulp-oss.git"
   },
   "dependencies": {
-    "aliyun-sdk": "latest",
+    "aliyun-sdk": "^1.8.5",
     "crypto": "0.0.3",
     "gulp-util": "~3.0.7",
     "mime": "~1.3.4",
